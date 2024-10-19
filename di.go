@@ -21,9 +21,20 @@ package di
 
 import (
 	"reflect"
+	"strings"
 )
 
-type provider[R any] func(*Scope) (R, error)
+type trace []reflect.Type
+
+func (t trace) String() string {
+	names := make([]string, len(t))
+	for i, t := range t {
+		names[i] = typeName(t)
+	}
+	return strings.Join(names, " -> ")
+}
+
+type provider[R any] func(*Scope, trace) (R, error)
 
 // Registrable is the base interface implemented by all
 // registration builders in the di package. The following builders are available:

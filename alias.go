@@ -14,10 +14,11 @@ func alias(s *Scope, r reflect.Type, of reflect.Type, provider reflect.Type) err
 		provider,
 		func(args []reflect.Value) []reflect.Value {
 			resolver := args[0].Interface().(*Scope)
+			trace := args[1].Interface().(trace)
 
 			result := []reflect.Value{reflect.Zero(r), reflect.Zero(reflect.TypeFor[error]())}
 
-			if out, err := resolver.resolve(of); err != nil {
+			if out, err := resolver.resolve(of, trace); err != nil {
 				result[1] = reflect.ValueOf(err)
 			} else {
 				result[0] = out.Convert(r)

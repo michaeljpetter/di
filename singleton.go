@@ -21,9 +21,11 @@ func singleton(s *Scope, r reflect.Type, provider reflect.Type, create reflect.V
 
 	s.registerProvider(r, reflect.MakeFunc(
 		provider,
-		func([]reflect.Value) []reflect.Value {
+		func(args []reflect.Value) []reflect.Value {
 			once.Do(func() {
-				if out, err := s.invoke(create); err != nil {
+				trace := args[1].Interface().(trace)
+
+				if out, err := s.invoke(create, trace); err != nil {
 					result[1] = reflect.ValueOf(err)
 				} else if 1 < len(out) && !out[1].IsNil() {
 					result[1] = out[1]

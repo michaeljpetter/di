@@ -237,4 +237,65 @@ func TestScope(t *testing.T) {
 
 		assert.Panics(t, func() { di.MustInvokeIn(s, (func())(nil)) })
 	})
+
+	t.Run("Cycle", func(t *testing.T) {
+		type (
+			A struct{}
+			B struct{}
+			C struct{}
+			D struct{}
+			E struct{}
+			F struct{}
+		)
+
+		t.Run("Minimal", func(t *testing.T) {
+			s := di.NewScope("test")
+			s.MustRegister(
+				di.Factory[A](func(B) A { return A{} }),
+				di.Factory[B](func(A) B { return B{} }))
+
+			_, err := di.ResolveIn[A](s)
+			assert.ErrorIs(t, err, di.ErrResolve)
+			assert.ErrorIs(t, err, di.ErrCycle)
+			assert.ErrorContains(t, err, ": di_test.A -> di_test.B -> di_test.A")
+
+			_, err = di.ResolveIn[B](s)
+			assert.ErrorIs(t, err, di.ErrResolve)
+			assert.ErrorIs(t, err, di.ErrCycle)
+			assert.ErrorContains(t, err, ": di_test.B -> di_test.A -> di_test.B")
+		})
+
+		t.Run("Deep", func(t *testing.T) {
+			s := di.NewScope("test")
+			s.MustRegister(
+				di.Factory[A](func(B) A { return A{} }),
+				di.Singleton[B](func(C, D, E) B { return B{} }),
+				di.Factory[C](func(E) C { return C{} }),
+				di.Factory[D](func(E, F) D { return D{} }),
+				di.Instance[E](E{}),
+				di.Alias[F, B]())
+
+			_, err := di.ResolveIn[A](s)
+			assert.ErrorIs(t, err, di.ErrResolve)
+			assert.ErrorIs(t, err, di.ErrCycle)
+			assert.ErrorContains(t, err, ": di_test.B -> di_test.D -> di_test.F -> di_test.B")
+		})
+
+		t.Run("Self", func(t *testing.T) {
+			s := di.NewScope("test")
+			s.MustRegister(
+				di.Factory[A](func(A) A { return A{} }),
+				di.Alias[B, B]())
+
+			_, err := di.ResolveIn[A](s)
+			assert.ErrorIs(t, err, di.ErrResolve)
+			assert.ErrorIs(t, err, di.ErrCycle)
+			assert.ErrorContains(t, err, ": di_test.A -> di_test.A")
+
+			_, err = di.ResolveIn[B](s)
+			assert.ErrorIs(t, err, di.ErrResolve)
+			assert.ErrorIs(t, err, di.ErrCycle)
+			assert.ErrorContains(t, err, ": di_test.B -> di_test.B")
+		})
+	})
 }

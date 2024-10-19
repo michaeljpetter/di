@@ -57,6 +57,13 @@ func newErrNotRegistered(r reflect.Type) error {
 	return fmt.Errorf("%w: %s", ErrNotRegistered, typeName(r))
 }
 
+// ErrCycle indicates that a cycle was detected during resolution.
+var ErrCycle = fmt.Errorf("%w: cycle detected", Err)
+
+func newErrCycle(t trace) error {
+	return fmt.Errorf("%w: %v", ErrCycle, t)
+}
+
 // ErrRegister indicates that an error occurred during registration, and wraps the error detail.
 var ErrRegister = fmt.Errorf("%w: register", Err)
 

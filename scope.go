@@ -52,7 +52,7 @@ func (s *Scope) registerDestroyer(value reflect.Value, destroy reflect.Value) {
 	s.destroyersLock.Unlock()
 }
 
-func (s *Scope) resolve(r reflect.Type) (reflect.Value, error) {
+func (s *Scope) resolve(r reflect.Type, trace trace) (reflect.Value, error) {
 	s.providersLock.RLock()
 	provider, ok := s.providers[r]
 	s.providersLock.RUnlock()
@@ -61,8 +61,12 @@ func (s *Scope) resolve(r reflect.Type) (reflect.Value, error) {
 		return reflect.Zero(r), newErrResolve(s, r, newErrNotRegistered(r))
 	}
 
+	if cycle := slices.Index(trace, r); 0 <= cycle {
+		return reflect.Zero(r), newErrResolve(s, r, newErrCycle(append(trace[cycle:], r)))
+	}
+
 	out := provider.Call([]reflect.Value{
-		reflect.ValueOf(s),
+		reflect.ValueOf(s), reflect.ValueOf(append(trace, r)),
 	})
 
 	value := out[0]
@@ -75,12 +79,12 @@ func (s *Scope) resolve(r reflect.Type) (reflect.Value, error) {
 	return value, err
 }
 
-func (s *Scope) invoke(function reflect.Value) ([]reflect.Value, error) {
+func (s *Scope) invoke(function reflect.Value, trace trace) ([]reflect.Value, error) {
 	f := function.Type()
 	args := make([]reflect.Value, f.NumIn())
 
 	for i := range f.NumIn() {
-		arg, err := s.resolve(f.In(i))
+		arg, err := s.resolve(f.In(i), trace)
 		if err != nil {
 			return nil, newErrInvoke(s, function, err)
 		}
@@ -140,7 +144,7 @@ func (s *Scope) MustDestroy() {
 // ResolveIn resolves a value for the given type R within the given scope.
 // [ErrResolve] is returned if resolution fails.
 func ResolveIn[R any](s *Scope) (R, error) {
-	value, err := s.resolve(reflect.TypeFor[R]())
+	value, err := s.resolve(reflect.TypeFor[R](), nil)
 	iface, _ := value.Interface().(R)
 	return iface, err
 }
@@ -170,7 +174,7 @@ func InvokeIn(s *Scope, function any) ([]any, error) {
 		return nil, newErrNil("function")
 	}
 
-	out, err := s.invoke(f)
+	out, err := s.invoke(f, nil)
 	if err != nil {
 		return nil, err
 	}

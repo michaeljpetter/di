@@ -19,10 +19,11 @@ func factory(s *Scope, r reflect.Type, provider reflect.Type, create reflect.Val
 		provider,
 		func(args []reflect.Value) []reflect.Value {
 			resolver := args[0].Interface().(*Scope)
+			trace := args[1].Interface().(trace)
 
 			result := []reflect.Value{reflect.Zero(r), reflect.Zero(reflect.TypeFor[error]())}
 
-			if out, err := resolver.invoke(create); err != nil {
+			if out, err := resolver.invoke(create, trace); err != nil {
 				result[1] = reflect.ValueOf(err)
 			} else if 1 < len(out) && !out[1].IsNil() {
 				result[1] = out[1]
